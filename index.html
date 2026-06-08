@@ -91,8 +91,10 @@
     #header select option { color: var(--c-texto); background: #fff; }
     #header .ultima-act { font-size: .72rem; color: var(--c-sec); white-space: nowrap; }
     @media (max-width: 767px) {
-      #header { flex-wrap: wrap; gap: .5rem; }
+      #header { flex-wrap: wrap; gap: .5rem; padding: .6rem 1rem; }
       #header .ultima-act { display: none; }
+      #header .brand { flex: 1 0 100%; }      /* logo ocupa toda la primera fila */
+      #header .brand img { height: 38px; }     /* tamaño cómodo y completo en móvil */
     }
 
     /* Tabs */
