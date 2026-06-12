@@ -746,13 +746,14 @@ async function iniciarDatos() {
 // ═══════════════════════════════════════════════════════════
 // LÓGICA DE NEGOCIO
 // ═══════════════════════════════════════════════════════════
-const ESTADOS_ACTIVOS = ['Postulación recibida','En proceso','En entrevista','Aceptado','Lista de espera'];
+const ESTADOS_ACTIVOS   = ['Postulación recibida','En proceso','En entrevista','Aceptado','Lista de espera'];
+const ESTADOS_DESISTIDOS = ['Desistido','Rechazado','No ha asistido'];
 
 function calcKPIs(posts) {
-  const total      = posts.length;
-  const activos    = posts.filter(p => ESTADOS_ACTIVOS.includes(p.estado)).length;
+  const total        = posts.length;
+  const activos      = posts.filter(p => ESTADOS_ACTIVOS.includes(p.estado)).length;
   const matriculados = posts.filter(p => p.estado === 'Matriculado').length;
-  const desistidos = posts.filter(p => p.estado === 'Desistido').length;
+  const desistidos   = posts.filter(p => ESTADOS_DESISTIDOS.includes(p.estado)).length;
   return { total, activos, matriculados, desistidos };
 }
 
