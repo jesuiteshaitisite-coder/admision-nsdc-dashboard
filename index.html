@@ -556,6 +556,7 @@ let DATA = {
   historial:   MOCK_HISTORIAL,
   estados:     [],   // lista canónica de estados (desde Config!ListaEstados)
   niveles:     [],   // lista canónica de niveles (desde Config!ListaNiveles)
+  config:      { diasAceptado:15, diasProceso:30, diasEntrevista:20 }, // umbrales de alerta (desde Config)
   fuente:      'mock'
 };
 
@@ -673,12 +674,23 @@ function actualizarFechaUlt() {
   DATA.postulantes.forEach(p=>{ if(ultimo[p.id]) p.fecha_ult=ultimo[p.id].slice(0,10); });
 }
 
-// Config: col 3(D)=ListaNiveles, col 4(E)=ListaEstados (listas canónicas del Sheet)
-// Excluye solo cabeceras tipo "ListaEstados"/"ListaNiveles" (camelCase sin espacio),
-// NO valores reales como "Lista de espera".
+// Config: col 0(A)=nombre parámetro, col 1(B)=valor; col 3(D)=ListaNiveles, col 4(E)=ListaEstados.
+// Listas: excluye cabeceras tipo "ListaEstados"/"ListaNiveles" (camelCase), NO "Lista de espera".
+// Umbrales de alerta: se buscan por NOMBRE en columna A (robusto ante orden o recorte de filas).
 function parsearConfig(rows) {
   const col = i => rows.map(r=>(r[i]||'').trim()).filter(v=>v && !/^Lista[A-Z]/.test(v));
-  return { niveles: col(3), estados: col(4) };
+  const buscarNum = (regex, def) => {
+    const fila = rows.find(r => regex.test((r[0]||'').toLowerCase()));
+    const n = fila ? parseInt((fila[1]||'').toString().trim(), 10) : NaN;
+    return Number.isFinite(n) ? n : def;
+  };
+  return {
+    niveles: col(3),
+    estados: col(4),
+    diasAceptado:   buscarNum(/aceptado/, 15),
+    diasProceso:    buscarNum(/proceso/, 30),
+    diasEntrevista: buscarNum(/entrevista/, 20),
+  };
 }
 
 function mostrarLoading(show, msg='Cargando...') {
@@ -716,6 +728,7 @@ async function iniciarDatos() {
     const cfg=parsearConfig(conf);
     DATA.estados = cfg.estados;
     DATA.niveles = cfg.niveles;
+    DATA.config = { diasAceptado:cfg.diasAceptado, diasProceso:cfg.diasProceso, diasEntrevista:cfg.diasEntrevista };
     actualizarFechaUlt();
     DATA.fuente='sheet'; hoy=new Date();
   } catch(e) {
@@ -753,14 +766,17 @@ function calcCupos() {
 
 function generarAlertas(posts) {
   const alertas = [];
+  // Umbrales configurables desde la hoja Config. ">=" para que "1 día" dispare al cumplirse el día.
+  const { diasAceptado, diasProceso, diasEntrevista } = DATA.config;
   posts.forEach(p => {
     const diasDesdeUlt = Math.round((hoy - new Date(p.fecha_ult)) / 86400000);
-    if (p.estado === 'Aceptado' && diasDesdeUlt > 15)
-      alertas.push({ tipo:'amarilla', emoji:'🟡', texto:`Aceptado sin matricular hace ${diasDesdeUlt} días`, nombre:`${p.apellidos}, ${p.nombres}`, nivel:p.nivel, id:p.id });
-    if (p.estado === 'En proceso' && diasDesdeUlt > 30)
-      alertas.push({ tipo:'naranja', emoji:'🟠', texto:`En proceso sin movimiento hace ${diasDesdeUlt} días`, nombre:`${p.apellidos}, ${p.nombres}`, nivel:p.nivel, id:p.id });
-    if (p.estado === 'En entrevista' && diasDesdeUlt > 20)
-      alertas.push({ tipo:'naranja', emoji:'🟠', texto:`En entrevista hace ${diasDesdeUlt} días`, nombre:`${p.apellidos}, ${p.nombres}`, nivel:p.nivel, id:p.id });
+    if (diasDesdeUlt < 0) return; // fecha futura (dato de prueba): no alertar
+    if (p.estado === 'Aceptado' && diasDesdeUlt >= diasAceptado)
+      alertas.push({ tipo:'amarilla', emoji:'🟡', texto:`Aceptado sin matricular hace ${diasDesdeUlt} día(s)`, nombre:`${p.apellidos}, ${p.nombres}`, nivel:p.nivel, id:p.id });
+    if (p.estado === 'En proceso' && diasDesdeUlt >= diasProceso)
+      alertas.push({ tipo:'naranja', emoji:'🟠', texto:`En proceso sin movimiento hace ${diasDesdeUlt} día(s)`, nombre:`${p.apellidos}, ${p.nombres}`, nivel:p.nivel, id:p.id });
+    if (p.estado === 'En entrevista' && diasDesdeUlt >= diasEntrevista)
+      alertas.push({ tipo:'naranja', emoji:'🟠', texto:`En entrevista hace ${diasDesdeUlt} día(s)`, nombre:`${p.apellidos}, ${p.nombres}`, nivel:p.nivel, id:p.id });
   });
   // Nivel sin vacantes con nuevos postulantes
   DATA.capacidad.forEach(n => {
