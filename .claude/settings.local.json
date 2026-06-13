@@ -3,7 +3,9 @@
     "allow": [
       "WebFetch(domain:docs.google.com)",
       "WebFetch(domain:doc-14-1k-sheets.googleusercontent.com)",
-      "mcp__Claude_Preview__preview_start"
+      "mcp__Claude_Preview__preview_start",
+      "Bash(curl -sL \"https://docs.google.com/spreadsheets/d/e/2PACX-1vSkmQlRtxmJjkdPQzDCmnYQDdcWca5h1q59mtaJLRBrjVMqFio7pN2wCIOrUuSxBe72MtLdKyGgV-A6/pub?gid=1288436839&single=true&output=csv\" -o postulantes_raw.csv)",
+      "Bash(node -e ' *)"
     ]
   }
 }
