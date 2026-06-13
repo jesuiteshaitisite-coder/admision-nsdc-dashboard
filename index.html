@@ -754,7 +754,6 @@ const ESTADOS_ACTIVOS = ['Postulación recibida','En proceso','En entrevista','A
 function calcKPIs(posts) {
   const total         = posts.length;
   const activosArr    = posts.filter(p => ESTADOS_ACTIVOS.includes(p.estado));
-  const aceptadosArr  = posts.filter(p => p.estado === 'Aceptado');
   // "Otros": cualquiera que no sea activo, ni matriculado, ni desistido
   // (hoy: Rechazado, No ha asistido; y cualquier estado nuevo que aparezca).
   const otrosArr = posts.filter(p =>
@@ -765,20 +764,20 @@ function calcKPIs(posts) {
     matriculados: posts.filter(p => p.estado === 'Matriculado').length,
     desistidos:   posts.filter(p => p.estado === 'Desistido').length,
     otros:        otrosArr.length,
-    aceptadosArr, otrosArr,
+    activosArr, otrosArr,
   };
 }
 
-// Construye la nota con nombres para una tarjeta. Devuelve HTML (con tooltip completo).
-// fmt(p) define cómo se muestra cada postulante (ej. solo apellido, o apellido + estado).
-// label opcional antepone un rótulo (ej. "Aceptados: ...").
-function notaNombres(arr, fmt, label='') {
+// Nota que explica QUÉ estados se contaron en la tarjeta y cuántos hay en cada uno.
+// Escala bien: el nº de estados distintos es pequeño y fijo, no crece con los postulantes.
+// Los nombres quedan en el tooltip (hover), sin ocupar espacio en la tarjeta.
+function notaEstados(arr) {
   if (!arr.length) return '';
-  const items = arr.map(fmt);
-  const full  = items.join(', ');
-  const visible = items.length <= 4 ? full : `${items.slice(0,4).join(', ')} +${items.length-4} más`;
-  const pref = label ? `${label}: ` : '';
-  return `<div class="kpi-nota" title="${(pref+full).replace(/"/g,'&quot;')}">${pref}${visible}</div>`;
+  const counts = {};
+  arr.forEach(p => { counts[p.estado] = (counts[p.estado] || 0) + 1; });
+  const visible = Object.entries(counts).map(([e,n]) => `${e} (${n})`).join(', ');
+  const nombres = arr.map(p => `${p.apellidos} ${p.nombres||''} — ${p.estado}`).join('\n');
+  return `<div class="kpi-nota" title="${nombres.replace(/"/g,'&quot;')}">${visible}</div>`;
 }
 
 function calcCupos() {
@@ -859,11 +858,11 @@ function renderGeneral() {
   const cupos = calcCupos();
 
   // KPIs postulantes
-  const notaAceptados = notaNombres(kpis.aceptadosArr, p => p.apellidos, 'Aceptados');
-  const notaOtros     = notaNombres(kpis.otrosArr, p => `${p.apellidos} (${p.estado})`);
+  const notaActivos = notaEstados(kpis.activosArr);
+  const notaOtros   = notaEstados(kpis.otrosArr);
   document.getElementById('kpis-postulantes').innerHTML = [
     renderKPI('Total postulantes', kpis.total, 'año 2027'),
-    renderKPI('Postulantes activos', kpis.activos, 'en seguimiento' + notaAceptados),
+    renderKPI('Postulantes activos', kpis.activos, 'en seguimiento' + notaActivos),
     renderKPI('Matriculados', kpis.matriculados, 'producto del proceso', 'var(--c-exito)'),
     renderKPI('Desistidos', kpis.desistidos, 'durante el proceso', 'var(--c-alerta)'),
     renderKPI('Otros', kpis.otros, 'sin matrícula ni desistimiento' + notaOtros, 'var(--c-sec)'),
