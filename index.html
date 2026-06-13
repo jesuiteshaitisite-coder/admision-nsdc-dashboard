@@ -134,13 +134,16 @@
 
     /* Grid helpers */
     .grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 1rem; }
+    .grid-5 { display: grid; grid-template-columns: repeat(5,1fr); gap: 1rem; }
     .grid-2 { display: grid; grid-template-columns: repeat(2,1fr); gap: 1rem; }
     @media (max-width: 1023px) {
-      .grid-4 { grid-template-columns: repeat(2,1fr); }
+      .grid-4, .grid-5 { grid-template-columns: repeat(2,1fr); }
     }
     @media (max-width: 767px) {
-      .grid-4, .grid-2 { grid-template-columns: 1fr; }
+      .grid-4, .grid-5, .grid-2 { grid-template-columns: 1fr; }
     }
+    /* Nota con nombres dentro de una tarjeta KPI */
+    .kpi-nota { font-size: .68rem; color: var(--c-acento); margin-top: .35rem; line-height: 1.3; }
 
     /* Nivel bars */
     .nivel-row { display: flex; align-items: center; gap: .5rem; padding: .3rem 0; border-bottom: 1px solid #f0ede8; font-size: .8rem; }
@@ -299,7 +302,7 @@
     <h2 class="section-title">Resumen del proceso 2027</h2>
 
     <!-- KPIs postulantes -->
-    <div class="grid-4" id="kpis-postulantes" style="margin-bottom:1rem;"></div>
+    <div class="grid-5" id="kpis-postulantes" style="margin-bottom:1rem;"></div>
 
     <!-- KPIs cupos -->
     <h3 class="section-title" style="font-size:.85rem;margin-bottom:.6rem;">Cupos del colegio</h3>
@@ -749,11 +752,33 @@ async function iniciarDatos() {
 const ESTADOS_ACTIVOS = ['Postulación recibida','En proceso','En entrevista','Aceptado','Lista de espera'];
 
 function calcKPIs(posts) {
-  const total        = posts.length;
-  const activos      = posts.filter(p => ESTADOS_ACTIVOS.includes(p.estado)).length;
-  const matriculados = posts.filter(p => p.estado === 'Matriculado').length;
-  const desistidos   = posts.filter(p => p.estado === 'Desistido').length;
-  return { total, activos, matriculados, desistidos };
+  const total         = posts.length;
+  const activosArr    = posts.filter(p => ESTADOS_ACTIVOS.includes(p.estado));
+  const aceptadosArr  = posts.filter(p => p.estado === 'Aceptado');
+  // "Otros": cualquiera que no sea activo, ni matriculado, ni desistido
+  // (hoy: Rechazado, No ha asistido; y cualquier estado nuevo que aparezca).
+  const otrosArr = posts.filter(p =>
+    !ESTADOS_ACTIVOS.includes(p.estado) && p.estado !== 'Matriculado' && p.estado !== 'Desistido');
+  return {
+    total,
+    activos:      activosArr.length,
+    matriculados: posts.filter(p => p.estado === 'Matriculado').length,
+    desistidos:   posts.filter(p => p.estado === 'Desistido').length,
+    otros:        otrosArr.length,
+    aceptadosArr, otrosArr,
+  };
+}
+
+// Construye la nota con nombres para una tarjeta. Devuelve HTML (con tooltip completo).
+// fmt(p) define cómo se muestra cada postulante (ej. solo apellido, o apellido + estado).
+// label opcional antepone un rótulo (ej. "Aceptados: ...").
+function notaNombres(arr, fmt, label='') {
+  if (!arr.length) return '';
+  const items = arr.map(fmt);
+  const full  = items.join(', ');
+  const visible = items.length <= 4 ? full : `${items.slice(0,4).join(', ')} +${items.length-4} más`;
+  const pref = label ? `${label}: ` : '';
+  return `<div class="kpi-nota" title="${(pref+full).replace(/"/g,'&quot;')}">${pref}${visible}</div>`;
 }
 
 function calcCupos() {
@@ -834,11 +859,14 @@ function renderGeneral() {
   const cupos = calcCupos();
 
   // KPIs postulantes
+  const notaAceptados = notaNombres(kpis.aceptadosArr, p => p.apellidos, 'Aceptados');
+  const notaOtros     = notaNombres(kpis.otrosArr, p => `${p.apellidos} (${p.estado})`);
   document.getElementById('kpis-postulantes').innerHTML = [
     renderKPI('Total postulantes', kpis.total, 'año 2027'),
-    renderKPI('Postulantes activos', kpis.activos, 'en seguimiento'),
+    renderKPI('Postulantes activos', kpis.activos, 'en seguimiento' + notaAceptados),
     renderKPI('Matriculados', kpis.matriculados, 'producto del proceso', 'var(--c-exito)'),
     renderKPI('Desistidos', kpis.desistidos, 'durante el proceso', 'var(--c-alerta)'),
+    renderKPI('Otros', kpis.otros, 'sin matrícula ni desistimiento' + notaOtros, 'var(--c-sec)'),
   ].join('');
 
   // KPIs cupos
